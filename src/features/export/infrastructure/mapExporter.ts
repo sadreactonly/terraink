@@ -2,6 +2,7 @@ import maplibregl, {
   type Map as MaplibreMap,
   type StyleSpecification,
 } from "maplibre-gl";
+import { MAP_OVERZOOM_SCALE } from "@/features/map/infrastructure/constants";
 
 const EXPORT_MAP_TIMEOUT_MS = 15_000;
 
@@ -41,9 +42,16 @@ export async function captureMapAsCanvas(
 ): Promise<HTMLCanvasElement> {
   await waitForMapIdle(map);
 
-  const previewContainer = map.getContainer();
-  const previewWidth = Math.max(previewContainer.clientWidth, 1);
-  const previewHeight = Math.max(previewContainer.clientHeight, 1);
+  const internalMapContainer = map.getContainer();
+  const visibleContainer = internalMapContainer.parentElement;
+  const visiblePreviewWidth =
+    visibleContainer?.clientWidth ||
+    Math.round(internalMapContainer.clientWidth / MAP_OVERZOOM_SCALE);
+  const visiblePreviewHeight =
+    visibleContainer?.clientHeight ||
+    Math.round(internalMapContainer.clientHeight / MAP_OVERZOOM_SCALE);
+  const previewWidth = Math.max(visiblePreviewWidth, 1);
+  const previewHeight = Math.max(visiblePreviewHeight, 1);
   const center = map.getCenter();
   const zoom = map.getZoom();
   const pitch = map.getPitch();
@@ -52,14 +60,23 @@ export async function captureMapAsCanvas(
   const widthScale = Math.max(exportWidth / previewWidth, 1);
   const heightScale = Math.max(exportHeight / previewHeight, 1);
   // Keep CSS viewport equal to preview and increase device pixels for sharpness.
-  const pixelRatio = Math.max(widthScale, heightScale, 1);
+  const basePixelRatio = Math.max(widthScale, heightScale, 1);
+
+  /**
+   * Match preview over-zoom behavior in export:
+   * - Expand internal viewport by fixed over-zoom scale to preserve framing.
+   * - Reduce pixelRatio by the same factor so output resolution stays bounded.
+   */
+  const renderWidth = Math.max(1, Math.round(previewWidth * MAP_OVERZOOM_SCALE));
+  const renderHeight = Math.max(1, Math.round(previewHeight * MAP_OVERZOOM_SCALE));
+  const pixelRatio = Math.max(basePixelRatio / MAP_OVERZOOM_SCALE, 1);
 
   const offscreenContainer = document.createElement("div");
   offscreenContainer.style.position = "fixed";
   offscreenContainer.style.left = "-100000px";
   offscreenContainer.style.top = "0";
-  offscreenContainer.style.width = `${previewWidth}px`;
-  offscreenContainer.style.height = `${previewHeight}px`;
+  offscreenContainer.style.width = `${renderWidth}px`;
+  offscreenContainer.style.height = `${renderHeight}px`;
   offscreenContainer.style.pointerEvents = "none";
   offscreenContainer.style.opacity = "0";
   document.body.appendChild(offscreenContainer);

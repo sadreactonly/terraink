@@ -23,6 +23,7 @@ import {
   MAP_BUTTON_ZOOM_DURATION_MS,
   MAP_BUTTON_ZOOM_STEP,
 } from "@/features/map/infrastructure";
+import { MAP_OVERZOOM_SCALE } from "@/features/map/infrastructure/constants";
 import {
   DEFAULT_POSTER_WIDTH_CM,
   DEFAULT_POSTER_HEIGHT_CM,
@@ -136,7 +137,7 @@ export default function PreviewPanel() {
           style={
             {
               "--poster-aspect": `${aspect}`,
-              "--poster-bg": effectiveTheme.gradient_color || effectiveTheme.bg,
+              "--poster-bg": effectiveTheme.ui.bg,
             } as CSSProperties
           }
         >
@@ -148,10 +149,11 @@ export default function PreviewPanel() {
             interactive={isEditing && isMoveMode}
             minZoom={mapMinZoom}
             maxZoom={mapMaxZoom}
+            overzoomScale={MAP_OVERZOOM_SCALE}
             onMoveEnd={handleMoveEnd}
           />
           <GradientFades
-            color={effectiveTheme.gradient_color || effectiveTheme.bg}
+            color={effectiveTheme.ui.bg}
           />
           <PosterTextOverlay
             city={form.displayCity || form.location || "Your City"}
@@ -159,7 +161,7 @@ export default function PreviewPanel() {
             lat={formLat}
             lon={formLon}
             fontFamily={form.fontFamily}
-            textColor={effectiveTheme.text}
+            textColor={effectiveTheme.ui.text}
             showPosterText={form.showPosterText}
             includeCredits={form.includeCredits}
           />

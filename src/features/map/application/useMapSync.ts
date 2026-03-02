@@ -11,6 +11,7 @@ import {
   DEFAULT_CONTAINER_PX,
   FLY_TO_DURATION_MS,
 } from "@/core/config";
+import { MAP_OVERZOOM_SCALE } from "@/features/map/infrastructure/constants";
 
 /**
  * Converts half-width distance (meters) to MapLibre zoom for a given latitude
@@ -80,6 +81,7 @@ export function useMapSync() {
   const { form } = state;
 
   const [containerPx, setContainerPx] = useState(DEFAULT_CONTAINER_PX);
+  const effectiveContainerPx = containerPx * MAP_OVERZOOM_SCALE;
 
   const setContainerWidth = useCallback((px: number) => {
     if (px <= 0) return;
@@ -97,8 +99,8 @@ export function useMapSync() {
   );
 
   const mapZoomBounds = useMemo(
-    () => resolveZoomBounds(formLat, containerPx),
-    [formLat, containerPx],
+    () => resolveZoomBounds(formLat, effectiveContainerPx),
+    [formLat, effectiveContainerPx],
   );
 
   const mapCenter = useMemo<[number, number]>(
@@ -109,19 +111,19 @@ export function useMapSync() {
   const mapZoom = useMemo(
     () =>
       clamp(
-        distanceToZoom(formDistance, formLat, containerPx),
+        distanceToZoom(formDistance, formLat, effectiveContainerPx),
         mapZoomBounds.minZoom,
         mapZoomBounds.maxZoom,
       ),
-    [formDistance, formLat, containerPx, mapZoomBounds],
+    [formDistance, formLat, effectiveContainerPx, mapZoomBounds],
   );
 
   const handleMoveEnd = useCallback(
     (center: [number, number], zoom: number) => {
       const [lon, lat] = center;
-      const bounds = resolveZoomBounds(lat, containerPx);
+      const bounds = resolveZoomBounds(lat, effectiveContainerPx);
       const boundedZoom = clamp(zoom, bounds.minZoom, bounds.maxZoom);
-      const distance = zoomToDistance(boundedZoom, lat, containerPx);
+      const distance = zoomToDistance(boundedZoom, lat, effectiveContainerPx);
 
       dispatch({
         type: "SET_FORM_FIELDS",
@@ -132,7 +134,7 @@ export function useMapSync() {
         },
       });
     },
-    [dispatch, containerPx],
+    [dispatch, effectiveContainerPx],
   );
 
   const flyToLocation = useCallback(
@@ -140,9 +142,9 @@ export function useMapSync() {
       const map = mapRef.current;
       if (!map) return;
 
-      const bounds = resolveZoomBounds(lat, containerPx);
+      const bounds = resolveZoomBounds(lat, effectiveContainerPx);
       const zoom = clamp(
-        distanceToZoom(formDistance, lat, containerPx),
+        distanceToZoom(formDistance, lat, effectiveContainerPx),
         bounds.minZoom,
         bounds.maxZoom,
       );
@@ -153,7 +155,7 @@ export function useMapSync() {
         duration: FLY_TO_DURATION_MS,
       });
     },
-    [mapRef, formDistance, containerPx],
+    [mapRef, formDistance, effectiveContainerPx],
   );
 
   return {

@@ -18,6 +18,7 @@ interface MapPreviewProps {
   maxZoom?: number;
   onMoveEnd?: (center: [number, number], zoom: number) => void;
   containerStyle?: CSSProperties;
+  overzoomScale?: number;
 }
 
 /**
@@ -37,9 +38,11 @@ export default function MapPreview({
   maxZoom,
   onMoveEnd,
   containerStyle,
+  overzoomScale = 1,
 }: MapPreviewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const isSyncing = useRef(false);
+  const hasMountedStyleRef = useRef(false);
   const onMoveEndRef = useRef(onMoveEnd);
   onMoveEndRef.current = onMoveEnd;
 
@@ -109,7 +112,27 @@ export default function MapPreview({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    map.setStyle(style);
+
+    // Initial style is already provided in map constructor.
+    // Skip the first effect pass to avoid "Style is not done loading" diffs.
+    if (!hasMountedStyleRef.current) {
+      hasMountedStyleRef.current = true;
+      return;
+    }
+
+    if (map.isStyleLoaded()) {
+      map.setStyle(style);
+      return;
+    }
+
+    const applyStyleWhenReady = () => {
+      map.setStyle(style);
+    };
+
+    map.once("load", applyStyleWhenReady);
+    return () => {
+      map.off("load", applyStyleWhenReady);
+    };
   }, [style, mapRef]);
 
   useEffect(() => {
@@ -137,7 +160,20 @@ export default function MapPreview({
     });
   }, [center, zoom, mapRef]);
 
+  const normalizedOverzoomScale = Math.max(1, overzoomScale);
+  const innerStyle: CSSProperties =
+    normalizedOverzoomScale === 1
+      ? { width: "100%", height: "100%" }
+      : {
+          width: `${normalizedOverzoomScale * 100}%`,
+          height: `${normalizedOverzoomScale * 100}%`,
+          transform: `scale(${1 / normalizedOverzoomScale})`,
+          transformOrigin: "top left",
+        };
+
   return (
-    <div ref={containerRef} className="map-container" style={containerStyle} />
+    <div className="map-container" style={{ ...containerStyle, overflow: "hidden" }}>
+      <div ref={containerRef} style={innerStyle} />
+    </div>
   );
 }
