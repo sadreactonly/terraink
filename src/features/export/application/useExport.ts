@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { usePosterContext } from "@/features/poster/ui/PosterContext";
 import { captureMapAsCanvas } from "@/features/export/infrastructure/mapExporter";
 import { compositeExport } from "@/features/poster/infrastructure/renderer";
@@ -6,7 +6,9 @@ import { resolveCanvasSize } from "@/features/poster/infrastructure/renderer/can
 import { getAllMarkerIcons } from "@/features/markers/infrastructure/iconRegistry";
 import { ensureGoogleFont } from "@/core/services";
 import {
+  createPngBlob,
   createPdfBlobFromCanvas,
+  createLayeredSvgBlobFromMap,
   createPosterFilename,
   triggerDownloadBlob,
 } from "@/core/services";
@@ -15,6 +17,42 @@ import {
   DEFAULT_POSTER_WIDTH_CM,
   DEFAULT_POSTER_HEIGHT_CM,
 } from "@/core/config";
+
+const EXPORT_COUNT_STORAGE_KEY = "terraink.poster.count";
+
+export interface SupportPromptState {
+  posterNumber: number;
+  isFirst: boolean;
+}
+
+function readPosterExportCount(): number {
+  if (typeof window === "undefined" || !window.localStorage) {
+    return 0;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(EXPORT_COUNT_STORAGE_KEY);
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      return 0;
+    }
+    return Math.floor(parsed);
+  } catch {
+    return 0;
+  }
+}
+
+function writePosterExportCount(nextCount: number): void {
+  if (typeof window === "undefined" || !window.localStorage) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(EXPORT_COUNT_STORAGE_KEY, String(nextCount));
+  } catch {
+    // Ignore storage write failures (quota/private mode).
+  }
+}
 
 /**
  * Provides handlers for exporting the live poster preview as PNG or PDF.
@@ -28,11 +66,27 @@ import {
  */
 export function useExport() {
   const { state, dispatch, effectiveTheme, mapRef } = usePosterContext();
+  const [supportPrompt, setSupportPrompt] = useState<SupportPromptState | null>(
+    null,
+  );
   const { form } = state;
-  const hasVisibleMarkers = state.markers.length > 0;
+  const hasVisibleMarkers = form.showMarkers && state.markers.length > 0;
+
+  const registerSuccessfulExport = useCallback(() => {
+    const nextCount = readPosterExportCount() + 1;
+    writePosterExportCount(nextCount);
+
+    if (nextCount === 1 || nextCount % 5 === 0) {
+      setSupportPrompt({ posterNumber: nextCount, isFirst: nextCount === 1 });
+    }
+  }, []);
+
+  const dismissSupportPrompt = useCallback(() => {
+    setSupportPrompt(null);
+  }, []);
 
   const exportPoster = useCallback(
-    async (format: "png" | "pdf") => {
+    async (format: "png" | "pdf" | "svg") => {
       const map = mapRef.current;
       if (!map) {
         dispatch({ type: "SET_ERROR", error: "Map is not ready." });
@@ -49,23 +103,54 @@ export function useExport() {
 
         const widthCm = Number(form.width) || DEFAULT_POSTER_WIDTH_CM;
         const heightCm = Number(form.height) || DEFAULT_POSTER_HEIGHT_CM;
+        const dpi = Number(form.dpi) || 300;
         const widthInches = widthCm / CM_PER_INCH;
         const heightInches = heightCm / CM_PER_INCH;
 
-        const size = resolveCanvasSize(widthInches, heightInches);
+        const size = resolveCanvasSize(widthInches, heightInches, dpi);
 
-        // 1. Capture map at full export resolution
-        const { canvas: mapCanvas, markerProjection, markerScaleX, markerScaleY } =
-          await captureMapAsCanvas(
-          map,
-          size.width,
-          size.height,
-          );
-
-        // 2. Composite fades + text
         const lat = Number(form.latitude) || 0;
         const lon = Number(form.longitude) || 0;
 
+        if (format === "svg") {
+          const svgBlob = await createLayeredSvgBlobFromMap({
+            map,
+            exportWidth: size.width,
+            exportHeight: size.height,
+            theme: effectiveTheme,
+            center: { lat, lon },
+            displayCity: form.displayCity || form.location || "",
+            displayCountry: form.displayCountry || "",
+            fontFamily: form.fontFamily.trim(),
+            showPosterText: form.showPosterText,
+            showOverlay: form.showMarkers,
+            includeCredits: form.includeCredits,
+            markers: hasVisibleMarkers ? state.markers : [],
+            markerIcons: hasVisibleMarkers
+              ? getAllMarkerIcons(state.customMarkerIcons)
+              : [],
+          });
+          const svgFilename = createPosterFilename(
+            form.displayCity || form.location,
+            form.theme,
+            "svg",
+          );
+          triggerDownloadBlob(svgBlob, svgFilename);
+          registerSuccessfulExport();
+          dispatch({ type: "FINISH_EXPORT" });
+          return;
+        }
+
+        // 1. Capture map at full export resolution
+        const {
+          canvas: mapCanvas,
+          markerProjection,
+          markerScaleX,
+          markerScaleY,
+          markerSizeScale,
+        } = await captureMapAsCanvas(map, size.width, size.height);
+
+        // 2. Composite fades + text
         const { canvas } = await compositeExport(mapCanvas, {
           theme: effectiveTheme,
           center: { lat, lon },
@@ -75,6 +160,7 @@ export function useExport() {
           displayCountry: form.displayCountry || "",
           fontFamily: form.fontFamily.trim(),
           showPosterText: form.showPosterText,
+          showOverlay: form.showMarkers,
           includeCredits: form.includeCredits,
           markers: hasVisibleMarkers ? state.markers : [],
           markerIcons: hasVisibleMarkers
@@ -83,6 +169,7 @@ export function useExport() {
           markerProjection: hasVisibleMarkers ? markerProjection : undefined,
           markerScaleX: hasVisibleMarkers ? markerScaleX : undefined,
           markerScaleY: hasVisibleMarkers ? markerScaleY : undefined,
+          markerSizeScale: hasVisibleMarkers ? markerSizeScale : undefined,
         });
 
         // 3. Download
@@ -99,12 +186,11 @@ export function useExport() {
           });
           triggerDownloadBlob(pdfBlob, filename);
         } else {
-          const blob = await new Promise<Blob | null>((resolve) =>
-            canvas.toBlob((b) => resolve(b), "image/png"),
-          );
-          if (blob) triggerDownloadBlob(blob, filename);
+          const pngBlob = await createPngBlob(canvas, dpi);
+          triggerDownloadBlob(pngBlob, filename);
         }
 
+        registerSuccessfulExport();
         dispatch({ type: "FINISH_EXPORT" });
       } catch (err) {
         const message = err instanceof Error ? err.message : "Export failed.";
@@ -117,6 +203,7 @@ export function useExport() {
       effectiveTheme,
       dispatch,
       hasVisibleMarkers,
+      registerSuccessfulExport,
       state.markers,
       state.customMarkerIcons,
     ],
@@ -132,5 +219,16 @@ export function useExport() {
     [exportPoster],
   );
 
-  return { handleDownloadPng, handleDownloadPdf };
+  const handleDownloadSvg = useCallback(
+    () => exportPoster("svg"),
+    [exportPoster],
+  );
+
+  return {
+    handleDownloadPng,
+    handleDownloadPdf,
+    handleDownloadSvg,
+    supportPrompt,
+    dismissSupportPrompt,
+  };
 }

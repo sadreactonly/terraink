@@ -25,12 +25,14 @@ export async function compositeExport(
     displayCountry,
     fontFamily,
     showPosterText = true,
+    showOverlay = true,
     includeCredits = true,
     markers = [],
     markerIcons = [],
     markerProjection,
     markerScaleX = 1,
     markerScaleY = 1,
+    markerSizeScale = 1,
   } = options;
 
   const width = mapCanvas.width;
@@ -47,7 +49,9 @@ export async function compositeExport(
   ctx.drawImage(mapCanvas, 0, 0);
 
   // 2. Gradient fades
-  applyFades(ctx, width, height, theme.ui.bg);
+  if (showOverlay) {
+    applyFades(ctx, width, height, theme.ui.bg);
+  }
 
   // 3. Markers
   if (markers.length > 0 && markerIcons.length > 0 && markerProjection) {
@@ -58,6 +62,7 @@ export async function compositeExport(
       markerProjection,
       markerScaleX,
       markerScaleY,
+      markerSizeScale,
     );
   }
 
@@ -72,6 +77,7 @@ export async function compositeExport(
     displayCountry,
     fontFamily,
     showPosterText,
+    showOverlay,
     includeCredits,
   );
 

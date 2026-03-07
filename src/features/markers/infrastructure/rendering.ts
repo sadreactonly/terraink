@@ -18,6 +18,33 @@ function loadImage(src: string) {
   });
 }
 
+function drawTintedImage(
+  ctx: CanvasRenderingContext2D,
+  image: CanvasImageSource,
+  x: number,
+  y: number,
+  size: number,
+  color: string,
+) {
+  const drawSize = Math.max(1, Math.round(size));
+  const tintCanvas = document.createElement("canvas");
+  tintCanvas.width = drawSize;
+  tintCanvas.height = drawSize;
+  const tintCtx = tintCanvas.getContext("2d");
+  if (!tintCtx) {
+    ctx.drawImage(image, x, y, size, size);
+    return;
+  }
+
+  tintCtx.drawImage(image, 0, 0, drawSize, drawSize);
+  tintCtx.globalCompositeOperation = "source-in";
+  tintCtx.fillStyle = color;
+  tintCtx.fillRect(0, 0, drawSize, drawSize);
+  tintCtx.globalCompositeOperation = "source-over";
+
+  ctx.drawImage(tintCanvas, x, y, size, size);
+}
+
 async function resolveMarkerImage(
   icon: MarkerIconDefinition,
   color: string,
@@ -41,6 +68,7 @@ export async function drawMarkersOnCanvas(
   projection: MarkerProjectionInput,
   scaleX = 1,
   scaleY = 1,
+  sizeScale = 1,
 ) {
   await Promise.all(
     markers.map(async (marker) => {
@@ -52,7 +80,7 @@ export async function drawMarkersOnCanvas(
       const point = projectMarkerToCanvas(marker.lat, marker.lon, projection);
       const x = point.x * scaleX;
       const y = point.y * scaleY;
-      const size = marker.size * Math.max(scaleX, scaleY);
+      const size = marker.size * Math.max(scaleX, scaleY) * sizeScale;
 
       const image = await resolveMarkerImage(
         icon,
@@ -61,6 +89,11 @@ export async function drawMarkersOnCanvas(
       const imageSize = size;
       const imageX = x - imageSize / 2;
       const imageY = y - imageSize / 2;
+
+      if (icon.tintWithMarkerColor) {
+        drawTintedImage(ctx, image, imageX, imageY, imageSize, marker.color);
+        return;
+      }
 
       ctx.drawImage(image, imageX, imageY, imageSize, imageSize);
     }),

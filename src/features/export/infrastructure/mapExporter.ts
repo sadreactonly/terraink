@@ -12,6 +12,7 @@ export interface CapturedMapResult {
   markerProjection: MarkerProjectionInput;
   markerScaleX: number;
   markerScaleY: number;
+  markerSizeScale: number;
 }
 
 function waitForMapIdle(map: MaplibreMap): Promise<void> {
@@ -117,19 +118,20 @@ export async function captureMapAsCanvas(
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(glCanvas, 0, 0, exportWidth, exportHeight);
-    return {
-      canvas: exportCanvas,
-      markerProjection: {
+      return {
+        canvas: exportCanvas,
+        markerProjection: {
         centerLat: center.lat,
         centerLon: center.lng,
         zoom,
         bearingDeg: bearing,
         canvasWidth: renderWidth,
         canvasHeight: renderHeight,
-      },
-      markerScaleX: exportWidth / renderWidth,
-      markerScaleY: exportHeight / renderHeight,
-    };
+        },
+        markerScaleX: exportWidth / renderWidth,
+        markerScaleY: exportHeight / renderHeight,
+        markerSizeScale: MAP_OVERZOOM_SCALE,
+      };
   } finally {
     exportMap.remove();
     offscreenContainer.remove();
