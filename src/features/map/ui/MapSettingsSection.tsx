@@ -15,6 +15,7 @@ import {
 import LayoutCard from "@/features/layout/ui/LayoutCard";
 import MapDimensionFields from "./MapDimensionFields";
 import MapSettingsPickers from "./MapSettingsPickers";
+import ColorPicker from "@/features/theme/ui/ColorPicker";
 import ThemeColorEditor from "@/features/theme/ui/ThemeColorEditor";
 import ThemeSummarySection from "@/features/theme/ui/ThemeSummarySection";
 import type { PosterForm } from "@/features/poster/application/posterReducer";
@@ -58,7 +59,6 @@ export default function MapSettingsSection({
 }: MapSettingsSectionProps) {
   const [activePicker, setActivePicker] = useState("");
   const [isThemeEditing, setIsThemeEditing] = useState(false);
-  const [isDetailLayersOpen, setIsDetailLayersOpen] = useState(false);
   const defaultColorKey: ThemeColorKey = DISPLAY_PALETTE_KEYS[0] ?? "ui.bg";
   const [activeColorKey, setActiveColorKey] = useState<ThemeColorKey | null>(
     null,
@@ -155,10 +155,6 @@ export default function MapSettingsSection({
     setActivePicker("");
   }
 
-  function toggleDetailLayers() {
-    setIsDetailLayersOpen((prev) => !prev);
-  }
-
   function clearColorPickerState() {
     setActiveColorKey(null);
     setActiveColorSession(null);
@@ -188,8 +184,8 @@ export default function MapSettingsSection({
   }
 
   function handleOpenThemeEditor() {
-    handleSwatchClick(defaultColorKey);
     setIsThemeEditing(true);
+    clearColorPickerState();
   }
 
   function handleDoneThemeEditor() {
@@ -229,175 +225,125 @@ export default function MapSettingsSection({
     onColorChange(key, originalColor);
   }
 
-  const hasCustomColors = Object.keys(customColors).length > 0;
+  const hasCustomColors = useMemo(
+    () =>
+      DISPLAY_PALETTE_KEYS.some((key) => {
+        const override = normalizeHexColor(customColors[key]);
+        if (!override) return false;
+        const original = normalizeHexColor(getThemeColorByPath(selectedTheme, key));
+        return override !== original;
+      }),
+    [customColors, selectedTheme],
+  );
   const activeColorLabel = activeColorKey
     ? (PALETTE_COLOR_LABELS[activeColorKey] ?? "Color")
     : "Color";
 
   useEffect(() => {
-    onColorEditorActiveChange?.(isThemeEditing);
-  }, [isThemeEditing, onColorEditorActiveChange]);
-
-  useEffect(() => {
+    onColorEditorActiveChange?.(false);
     return () => {
       onColorEditorActiveChange?.(false);
     };
   }, [onColorEditorActiveChange]);
 
-  if (isThemeEditing) {
-    const editorKey = activeColorKey || defaultColorKey;
-    const editorChoices = activeColorKey
-      ? activeColorChoices
-      : buildDynamicColorChoices(
-          currentThemePalette[0] || "",
-          currentThemePalette,
-        );
-    const editorColor =
-      customColors[editorKey] ??
-      (getThemeColorByPath(selectedTheme, editorKey) || currentThemePalette[0] || "");
-
-    return (
-      <ThemeColorEditor
-        activeColorLabel={activeColorLabel}
-        hasCustomColors={hasCustomColors}
-        onResetAllColors={handleResetThemeColors}
-        onDone={handleDoneThemeEditor}
-        colorTargets={colorTargets}
-        onTargetSelect={handleSwatchClick}
-        editorColor={editorColor}
-        suggestedColors={editorChoices.suggestedColors}
-        moreColors={editorChoices.moreColors}
-        onColorChange={(color: string) => onColorChange(editorKey, color)}
-        onResetColor={() => handleResetSingleColor(editorKey)}
-      />
-    );
-  }
+  const editorKey = activeColorKey || defaultColorKey;
+  const editorChoices = activeColorKey
+    ? activeColorChoices
+    : buildDynamicColorChoices(currentThemePalette[0] || "", currentThemePalette);
+  const editorColor =
+    customColors[editorKey] ??
+    (getThemeColorByPath(selectedTheme, editorKey) || currentThemePalette[0] || "");
+  const originalEditorColor =
+    normalizeHexColor(getThemeColorByPath(selectedTheme, editorKey)) ||
+    normalizeHexColor(currentThemePalette[0]) ||
+    "";
+  const normalizedEditorColor = normalizeHexColor(editorColor) || "";
+  const canResetEditorColor = Boolean(
+    originalEditorColor &&
+      normalizedEditorColor &&
+      originalEditorColor !== normalizedEditorColor,
+  );
 
   return (
     <section className="panel-block">
-      <h2>Map Settings</h2>
+      <div className="map-settings-theme-part">
+        <h2>Theme</h2>
 
-      <ThemeSummarySection
-        themeName={selectedThemeOption.name}
-        themeOption={summaryThemeOption}
-        onCustomize={handleOpenThemeEditor}
-        onOpenThemePicker={openThemePicker}
-      />
+        {isThemeEditing ? (
+          activeColorKey ? (
+            <section className="panel-block color-editor-screen">
+              <h2>Color Editor</h2>
+              <div className="color-editor-header">
+                <p className="theme-active-label">Editing: {activeColorLabel}</p>
+                <div className="theme-edit-actions">
+                  <button
+                    type="button"
+                    className="theme-edit-done-btn"
+                    onClick={clearColorPickerState}
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
 
-      <p className="layout-active-label">Layout: {selectedLayoutOption.name}</p>
-      <LayoutCard
-        layoutOption={selectedLayoutOption}
-        onClick={openLayoutPicker}
-      />
-
-      <MapDimensionFields
-        form={form}
-        minPosterCm={minPosterCm}
-        maxPosterCm={maxPosterCm}
-        onChange={onChange}
-        onNumericFieldBlur={onNumericFieldBlur}
-        showDistanceField={false}
-      />
-
-      <div className="map-details-section">
-        <h3 className="map-details-subtitle">Map Details</h3>
-        <div className="map-details-card">
-          <MapDimensionFields
-            form={form}
-            minPosterCm={minPosterCm}
-            maxPosterCm={maxPosterCm}
-            onChange={onChange}
-            onNumericFieldBlur={onNumericFieldBlur}
-            showSizeFields={false}
+              <ColorPicker
+                currentColor={editorColor}
+                suggestedColors={editorChoices.suggestedColors}
+                moreColors={editorChoices.moreColors}
+                onChange={(color: string) => onColorChange(editorKey, color)}
+                onResetColor={() => handleResetSingleColor(editorKey)}
+                canResetColor={canResetEditorColor}
+              />
+            </section>
+          ) : (
+            <ThemeColorEditor
+              activeColorLabel={activeColorLabel}
+              hasCustomColors={hasCustomColors}
+              onResetAllColors={handleResetThemeColors}
+              onDone={handleDoneThemeEditor}
+              colorTargets={colorTargets}
+              onTargetSelect={handleSwatchClick}
+            />
+          )
+        ) : (
+          <ThemeSummarySection
+            themeName={selectedThemeOption.name}
+            themeOption={summaryThemeOption}
+            onCustomize={handleOpenThemeEditor}
+            onOpenThemePicker={openThemePicker}
           />
+        )}
+      </div>
 
-          <button
-            type="button"
-            className={`map-details-collapsible${isDetailLayersOpen ? " is-open" : ""}`}
-            onClick={toggleDetailLayers}
-            aria-expanded={isDetailLayersOpen}
-            aria-controls="layer-visibility-options"
-          >
-            <span>Layer Visibility</span>
-            <span className="map-details-collapsible-arrow" aria-hidden="true" />
-          </button>
+      <div className="map-settings-layout-part">
+        <h2>Layout</h2>
+        <p className="layout-active-label">Layout: {selectedLayoutOption.name}</p>
+        <LayoutCard
+          layoutOption={selectedLayoutOption}
+          onClick={openLayoutPicker}
+        />
 
-          {isDetailLayersOpen ? (
-            <div id="layer-visibility-options" className="map-details-collapsible-content">
-              <label className="toggle-field">
-                <span>Show buildings</span>
-                <span className="theme-switch">
-                  <input
-                    type="checkbox"
-                    name="includeBuildings"
-                    checked={Boolean(form.includeBuildings)}
-                    onChange={onChange}
-                  />
-                  <span className="theme-switch-track" aria-hidden="true" />
-                </span>
-              </label>
-              <label className="toggle-field">
-                <span>Show water</span>
-                <span className="theme-switch">
-                  <input
-                    type="checkbox"
-                    name="includeWater"
-                    checked={Boolean(form.includeWater)}
-                    onChange={onChange}
-                  />
-                  <span className="theme-switch-track" aria-hidden="true" />
-                </span>
-              </label>
-              <label className="toggle-field">
-                <span>Show parks</span>
-                <span className="theme-switch">
-                  <input
-                    type="checkbox"
-                    name="includeParks"
-                    checked={Boolean(form.includeParks)}
-                    onChange={onChange}
-                  />
-                  <span className="theme-switch-track" aria-hidden="true" />
-                </span>
-              </label>
-              <label className="toggle-field">
-                <span>Show roads</span>
-                <span className="theme-switch">
-                  <input
-                    type="checkbox"
-                    name="includeRoads"
-                    checked={Boolean(form.includeRoads)}
-                    onChange={onChange}
-                  />
-                  <span className="theme-switch-track" aria-hidden="true" />
-                </span>
-              </label>
-              <label className="toggle-field">
-                <span>Show rail</span>
-                <span className="theme-switch">
-                  <input
-                    type="checkbox"
-                    name="includeRail"
-                    checked={Boolean(form.includeRail)}
-                    onChange={onChange}
-                  />
-                  <span className="theme-switch-track" aria-hidden="true" />
-                </span>
-              </label>
-              <label className="toggle-field">
-                <span>Show aeroway</span>
-                <span className="theme-switch">
-                  <input
-                    type="checkbox"
-                    name="includeAeroway"
-                    checked={Boolean(form.includeAeroway)}
-                    onChange={onChange}
-                  />
-                  <span className="theme-switch-track" aria-hidden="true" />
-                </span>
-              </label>
-            </div>
-          ) : null}
+        <MapDimensionFields
+          form={form}
+          minPosterCm={minPosterCm}
+          maxPosterCm={maxPosterCm}
+          onChange={onChange}
+          onNumericFieldBlur={onNumericFieldBlur}
+          showDistanceField={false}
+        />
+
+        <div className="map-details-section">
+          <h3 className="map-details-subtitle">Map Details</h3>
+          <div className="map-details-card">
+            <MapDimensionFields
+              form={form}
+              minPosterCm={minPosterCm}
+              maxPosterCm={maxPosterCm}
+              onChange={onChange}
+              onNumericFieldBlur={onNumericFieldBlur}
+              showSizeFields={false}
+            />
+          </div>
         </div>
       </div>
 

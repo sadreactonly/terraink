@@ -313,6 +313,28 @@
   border-color: rgba(55, 171, 203, 0.8);
 }
 
+.map-control-btn--marker-reset {
+  background: rgba(73, 45, 34, 0.84);
+  border-color: rgba(255, 177, 142, 0.58);
+  color: #ffd7c2;
+}
+
+.map-control-btn--marker-reset:hover:not(:disabled) {
+  background: rgba(96, 58, 43, 0.92);
+  border-color: rgba(255, 177, 142, 0.85);
+}
+
+.map-control-btn--danger {
+  background: rgba(82, 44, 36, 0.82);
+  border-color: rgba(255, 152, 129, 0.44);
+  color: #ffd5cb;
+}
+
+.map-control-btn--danger:hover:not(:disabled) {
+  background: rgba(97, 53, 44, 0.92);
+  border-color: rgba(255, 152, 129, 0.72);
+}
+
 .map-control-hint {
   display: flex;
   align-items: center;
@@ -331,6 +353,52 @@
 .map-control-hint-icon {
   flex-shrink: 0;
   font-size: 0.8em;
+}
+
+.settings-info-card {
+  margin: 10px;
+  padding: 12px;
+  border: 1px solid rgba(137, 176, 200, 0.3);
+  border-radius: 10px;
+  background: rgba(10, 24, 35, 0.72);
+  color: #d5e7f5;
+}
+
+.settings-info-title {
+  margin: 0 0 8px;
+  font-size: 0.82rem;
+  font-family: "Spline Sans Mono", monospace;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: rgba(188, 219, 238, 0.9);
+}
+
+.settings-info-list {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px 14px;
+}
+
+.settings-info-row {
+  margin: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.settings-info-row dt {
+  margin: 0;
+  font-family: "Spline Sans Mono", monospace;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: rgba(156, 195, 218, 0.72);
+}
+
+.settings-info-row dd {
+  margin: 0;
+  font-size: 0.86rem;
+  color: #e1eff9;
 }
 
 @media (max-width: 700px) {

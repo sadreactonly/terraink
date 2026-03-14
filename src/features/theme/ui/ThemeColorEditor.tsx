@@ -1,4 +1,3 @@
-import ColorPicker from "./ColorPicker";
 import type { ThemeColorKey } from "../domain/types";
 
 interface ColorTarget {
@@ -15,11 +14,6 @@ interface ThemeColorEditorProps {
   onDone: () => void;
   colorTargets: ColorTarget[];
   onTargetSelect: (key: ThemeColorKey) => void;
-  editorColor: string;
-  suggestedColors: string[];
-  moreColors: string[];
-  onColorChange: (color: string) => void;
-  onResetColor: () => void;
 }
 
 export default function ThemeColorEditor({
@@ -29,11 +23,6 @@ export default function ThemeColorEditor({
   onDone,
   colorTargets,
   onTargetSelect,
-  editorColor,
-  suggestedColors,
-  moreColors,
-  onColorChange,
-  onResetColor,
 }: ThemeColorEditorProps) {
   return (
     <section className="panel-block color-editor-screen">
@@ -78,14 +67,6 @@ export default function ThemeColorEditor({
           </button>
         ))}
       </div>
-
-      <ColorPicker
-        currentColor={editorColor}
-        suggestedColors={suggestedColors}
-        moreColors={moreColors}
-        onChange={onColorChange}
-        onResetColor={onResetColor}
-      />
     </section>
   );
 }

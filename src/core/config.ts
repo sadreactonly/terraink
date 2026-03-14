@@ -51,6 +51,9 @@ export const SOCIAL_REDDIT = import.meta.env.VITE_SOCIAL_REDDIT ?? "";
 export const SOCIAL_THREADS = import.meta.env.VITE_SOCIAL_THREADS ?? "";
 export const SOCIAL_YOUTUBE = import.meta.env.VITE_SOCIAL_YOUTUBE ?? "";
 export const KOFI_URL = import.meta.env.VITE_KOFI_URL ?? "";
+export const DEVELOPER_NAME = import.meta.env.VITE_DEVELOPER_NAME ?? "";
+export const DEVELOPER_PROFILE_URL =
+  import.meta.env.VITE_DEVELOPER_PROFILE_URL ?? "";
 export const APP_CREDIT_URL =
   import.meta.env.VITE_APP_CREDIT_URL ?? "terraink.app";
 

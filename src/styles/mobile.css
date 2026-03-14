@@ -1,0 +1,589 @@
+/* ══════════════════════════════════════════════════════════════
+   Mobile layout — structured, map-centered interface
+   with bottom tab navigation.
+
+   Structure on mobile (top → bottom):
+     1. Condensed header (logo + title + kicker)
+     2. Map preview (centered with margins, aspect ratio preserved)
+     3. Dynamic middle panel (card container, changes per active tab)
+     4. Persistent lower area (Help Us Grow, Contact, credits)
+     5. Fixed bottom nav bar
+
+   Tabs:  Location | Theme | Layout | Style | Export
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Bottom navigation bar — hidden on desktop ── */
+
+.mobile-nav-wrapper {
+  display: none;
+}
+
+.mobile-nav {
+  display: none;
+}
+
+/* ── Mobile persistent footer — hidden on desktop ── */
+
+.mobile-persistent-footer {
+  display: none;
+}
+
+/* ═══════════ MOBILE BREAKPOINT ═══════════ */
+
+@media (max-width: 768px) {
+  /* ────────────────────────────────────
+     Bottom nav bar (fixed, floating pill)
+     ──────────────────────────────────── */
+
+  .mobile-nav-wrapper {
+    display: flex;
+    align-items: center;
+    position: fixed;
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    left: 16px;
+    right: 16px;
+    z-index: 100;
+    gap: 8px;
+  }
+
+  /* Main pill nav */
+  .mobile-nav {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    height: 60px;
+    border-radius: 20px;
+    background: rgba(9, 16, 24, 0.97);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(146, 176, 200, 0.14);
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.55),
+      0 2px 8px rgba(0, 0, 0, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Scroll container clips tabs and hosts the fade overlay */
+  .mobile-nav-scroll-container {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Actual scrollable row of tabs */
+  .mobile-nav-tabs {
+    display: flex;
+    height: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mobile-nav-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Right-edge fade gradient — hints that more tabs exist */
+  .mobile-nav-fade {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 30px;
+    pointer-events: none;
+    background: linear-gradient(
+      to right,
+      transparent,
+      rgba(9, 16, 24, 0.62) 70%,
+      rgba(9, 16, 24, 0.78) 100%
+    );
+    border-radius: 0 20px 20px 0;
+  }
+
+  .mobile-nav-fade::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: 6px;
+    width: 6px;
+    height: 6px;
+    border-top: 1.5px solid rgba(180, 205, 225, 0.35);
+    border-right: 1.5px solid rgba(180, 205, 225, 0.35);
+    transform: translateY(-50%) rotate(45deg);
+  }
+
+  .mobile-nav-tab {
+    flex-shrink: 0;
+    width: 72px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    margin: 0;
+    padding: 6px 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    color: rgba(180, 205, 225, 0.45);
+    font-size: 0.58rem;
+    font-weight: 600;
+    font-family: "Spline Sans Mono", monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: color 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+    scroll-snap-align: start;
+  }
+
+  .mobile-nav-tab:not(:disabled):hover {
+    transform: none;
+    filter: none;
+  }
+
+  .mobile-nav-tab.is-active {
+    color: #7dd8f0;
+  }
+
+  .mobile-nav-icon {
+    width: 19px;
+    height: 19px;
+  }
+
+  .mobile-nav-label {
+    line-height: 1;
+  }
+
+  /* Settings button — separate pill/circle to the right */
+  .mobile-nav-settings {
+    flex-shrink: 0;
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(146, 176, 200, 0.14);
+    border-radius: 18px;
+    background: rgba(9, 16, 24, 0.97);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.55),
+      0 2px 8px rgba(0, 0, 0, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    color: rgba(180, 205, 225, 0.4);
+    cursor: default;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobile-nav-settings-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  /* ────────────────────────────────────
+     Info drawer (bottom sheet)
+     ──────────────────────────────────── */
+
+  /* ────────────────────────────────────
+     Unified bottom drawer
+     Used by both settings tabs and info.
+     ──────────────────────────────────── */
+
+  .mobile-drawer {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+
+  .mobile-drawer-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    animation: backdrop-fadein 0.2s ease;
+  }
+
+  @keyframes backdrop-fadein {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .mobile-drawer-sheet {
+    position: relative;
+    z-index: 1;
+    background: rgba(11, 20, 30, 0.98);
+    border-top: 1px solid rgba(146, 176, 200, 0.16);
+    border-radius: 24px 24px 0 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    max-height: 75vh;
+    display: flex;
+    flex-direction: column;
+    animation: sheet-slidein 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+    /* transition is set/unset by swipe hook via inline style */
+    transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  @keyframes sheet-slidein {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+
+  .mobile-drawer-handle {
+    flex-shrink: 0;
+    /* touch target: full width strip, tall enough for fingers */
+    width: 100%;
+    padding: 14px 0 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+  }
+
+  .mobile-drawer-handle::after {
+    content: "";
+    display: block;
+    width: 44px;
+    height: 5px;
+    background: rgba(180, 205, 225, 0.35);
+    border-radius: 3px;
+  }
+
+  .mobile-drawer-handle:active {
+    cursor: grabbing;
+  }
+
+  .mobile-drawer-handle:active::after {
+    background: rgba(125, 216, 240, 0.5);
+  }
+
+  .mobile-drawer-content {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 8px 16px calc(24px + env(safe-area-inset-bottom, 0px));
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Info panel strip inside drawer */
+  .mobile-drawer-content .info-panel {
+    display: block;
+  }
+
+  .mobile-drawer-content .info-panel-group {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  /* Settings panel inside drawer: strip its own card chrome */
+  .mobile-drawer-content .settings-panel {
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  /* ────────────────────────────────────
+     Shell layout
+     ──────────────────────────────────── */
+
+  .app-shell {
+    padding: 0;
+    padding-bottom: calc(60px + 14px + 8px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* ────────────────────────────────────
+     Header: condensed — title + kicker
+     always visible, longer copy hidden
+     ──────────────────────────────────── */
+
+  .app-header {
+    padding: 10px 14px 8px;
+    margin-bottom: 0;
+  }
+
+  /* Hide the longer marketing copy, keep the kicker tagline */
+  .app-copy {
+    display: none;
+  }
+
+  .app-kicker {
+    display: block;
+    margin: 10px 0;
+    font-size: 0.6rem;
+    letter-spacing: 0.14em;
+    opacity: 0.6;
+  }
+
+  .app-header h1 {
+    font-size: 1.55rem;
+    margin: 0 0 1px;
+  }
+
+  .brand-logo {
+    width: 34px;
+  }
+
+  .brand-row {
+    align-items: center;
+  }
+
+  .install-prompt {
+    display: none;
+  }
+
+  /* ────────────────────────────────────
+     Grid: reorder for mobile
+     preview first, then settings card
+     ──────────────────────────────────── */
+
+  .app-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "preview"
+      "config";
+    gap: 0;
+  }
+
+  /* Hide the info-panel inside the grid (shown in mobile-persistent-footer) */
+  .app-grid > .info-panel {
+    display: none;
+  }
+
+  /* Settings panel hidden in grid on mobile — rendered inside drawer instead */
+  .app-grid > .settings-panel {
+    display: none;
+  }
+
+  /* FooterNote: styled for mobile, shown below the persistent footer */
+  .app-shell > .app-footer {
+    margin: 8px 8px 0;
+    padding: 10px 14px;
+    display: grid;
+    gap: 5px;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .app-shell > .app-footer .source-note {
+    font-size: 0.67rem;
+    line-height: 1.55;
+  }
+
+  .app-shell > .app-footer .made-note {
+    font-size: 0.72rem;
+  }
+
+  /* ────────────────────────────────────
+     Preview panel: centered with margins
+     Background grid peeks through sides.
+     Aspect ratio is always preserved via
+     the existing aspect-ratio CSS property
+     + a height-capped width formula.
+     ──────────────────────────────────── */
+
+  .preview-panel {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .poster-viewport {
+    min-height: 0;
+    border: 1px solid var(--strong-line);
+    border-radius: 12px;
+    /* Slightly reduced side margins to give more visual weight to the map */
+    margin: 6px 8px 0;
+    padding: 12px 0;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 35%),
+      radial-gradient(
+        circle at 78% 18%,
+        rgba(77, 161, 201, 0.22),
+        transparent 36%
+      ),
+      linear-gradient(145deg, rgba(14, 33, 46, 0.95), rgba(11, 26, 38, 0.9));
+  }
+
+  /* Preserve the grid pattern inside the viewport */
+  .poster-viewport::before {
+    border-radius: 12px;
+  }
+
+  /*
+     Aspect-ratio-safe poster frame.
+     - Width is always the full available viewport width minus 12px per side.
+     - max-height caps tall portrait posters; the browser then reduces width
+       proportionally via the inline aspect-ratio property, keeping the ratio
+       correct at every size.
+     - For wide formats (e.g. 16:9) the poster is naturally short so
+       max-height never clamps — 12px sides are preserved exactly.
+  */
+  .poster-frame {
+    width: calc(100% - 24px);
+    max-height: 150vh;
+    border-radius: 4px;
+    border: 1px solid rgba(179, 210, 230, 0.24);
+    box-shadow:
+      0 12px 28px rgba(0, 0, 0, 0.45),
+      0 4px 10px rgba(0, 0, 0, 0.32);
+  }
+
+  /* ── Map controls: compact row below map ── */
+
+  .map-controls-section {
+    margin: 0 8px;
+    padding: 8px 10px;
+    border-top: 1px solid rgba(146, 176, 200, 0.1);
+  }
+
+  /* ────────────────────────────────────
+     Settings panel: card container
+     Inner panel-block sections retain
+     their borders and labels for
+     readability and content separation.
+     ──────────────────────────────────── */
+
+  .settings-panel {
+    margin: 8px 8px 0;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--panel);
+    box-shadow:
+      0 8px 20px rgba(0, 0, 0, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+
+  /* ── Tab-driven section visibility ── */
+
+  /* Location tab: show only location section */
+  [data-mobile-tab="location"] .mobile-section:not(.mobile-section--location) {
+    display: none;
+  }
+
+  /* Theme tab: show only theme settings */
+  [data-mobile-tab="theme"]
+    .mobile-section:not(.mobile-section--theme-settings) {
+    display: none;
+  }
+
+  /* Layout tab: show only layout settings */
+  [data-mobile-tab="layout"]
+    .mobile-section:not(.mobile-section--layout-settings) {
+    display: none;
+  }
+  [data-mobile-tab="layout"] .mobile-section--layers,
+  [data-mobile-tab="layout"] .mobile-section--markers {
+    display: none;
+  }
+
+  /* Layers tab: show only the layers section */
+  [data-mobile-tab="layers"] .mobile-section:not(.mobile-section--layers) {
+    display: none;
+  }
+
+  /* Markers tab: show only the markers section */
+  [data-mobile-tab="markers"] .mobile-section:not(.mobile-section--markers) {
+    display: none;
+  }
+
+  /* Style tab: show only the style/typography section */
+  [data-mobile-tab="style"] .mobile-section:not(.mobile-section--style) {
+    display: none;
+  }
+
+  /* Export tab: show only export section */
+  [data-mobile-tab="export"] .mobile-section:not(.mobile-section--export) {
+    display: none;
+  }
+
+  /* ── Mobile section animations ── */
+
+  .mobile-section {
+    animation: mobile-section-fadein 0.18s ease;
+  }
+
+  @keyframes mobile-section-fadein {
+    from {
+      opacity: 0;
+      transform: translateY(5px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* ────────────────────────────────────
+     Persistent footer area
+     Always scrollable below tab content.
+     Contains: Help Us Grow, Contact/Legal,
+     and map data credits (OSM, etc.).
+     ──────────────────────────────────── */
+
+  .mobile-persistent-footer {
+    display: none;
+    margin: 8px 8px 0;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--panel);
+    box-shadow:
+      0 8px 20px rgba(0, 0, 0, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+
+  .mobile-persistent-footer .info-panel {
+    display: block;
+  }
+
+  .mobile-persistent-footer .info-panel-group {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  /* ────────────────────────────────────
+     Export buttons: full-width stacked
+     ──────────────────────────────────── */
+
+  .download-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  button.download-format-btn {
+    min-height: 50px;
+    font-size: 0.9rem;
+  }
+}

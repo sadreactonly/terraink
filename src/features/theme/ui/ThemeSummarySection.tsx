@@ -19,7 +19,7 @@ export default function ThemeSummarySection({
     <div className="theme-section">
       <div className="theme-summary-view">
         <div className="theme-summary-header">
-          <p className="theme-active-label">Theme: {themeName}</p>
+          <p className="theme-active-label">{themeName}</p>
           <button
             type="button"
             className="theme-customize-btn"

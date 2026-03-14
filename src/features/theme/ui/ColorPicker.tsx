@@ -8,6 +8,7 @@ interface ColorPickerProps {
   moreColors?: string[];
   onChange: (color: string) => void;
   onResetColor: () => void;
+  canResetColor?: boolean;
 }
 
 export default function ColorPicker({
@@ -16,6 +17,7 @@ export default function ColorPicker({
   moreColors = [],
   onChange,
   onResetColor,
+  canResetColor = true,
 }: ColorPickerProps) {
   const suggestionList = useMemo(
     () => toUniqueHexColors(suggestedColors).slice(0, 10),
@@ -112,6 +114,7 @@ export default function ColorPicker({
           type="button"
           className="color-grid-action color-grid-reset"
           onClick={onResetColor}
+          disabled={!canResetColor}
         >
           Reset Color
         </button>

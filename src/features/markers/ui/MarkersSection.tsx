@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import { usePosterContext } from "@/features/poster/ui/PosterContext";
 import type {
   MarkerDefaults,
@@ -13,7 +12,6 @@ import {
 } from "@/features/markers/infrastructure/helpers";
 import { findMarkerIcon } from "@/features/markers/infrastructure/iconRegistry";
 import {
-  DEFAULT_MARKER_SIZE,
   MAX_MARKER_SIZE,
   MIN_MARKER_SIZE,
 } from "@/features/markers/infrastructure/constants";
@@ -50,80 +48,16 @@ function formatCoordinate(value: number) {
   return Number(value).toFixed(6);
 }
 
-interface MarkersSectionProps {
-  onEditorActiveChange?: (active: boolean) => void;
-}
-
-function DeleteAllMarkersModal({
-  markerCount,
-  onCancel,
-  onConfirm,
-}: {
-  markerCount: number;
-  onCancel: () => void;
-  onConfirm: () => void;
-}) {
-  return createPortal(
-    <div
-      className="picker-modal-backdrop"
-      role="presentation"
-      onClick={onCancel}
-    >
-      <div
-        className="picker-modal marker-delete-confirm-modal"
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="marker-delete-modal-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="marker-delete-modal-body">
-          <p
-            className="marker-delete-modal-headline"
-            id="marker-delete-modal-title"
-          >
-            Delete all markers?
-          </p>
-          <p className="marker-delete-modal-text">
-            This will remove {markerCount} marker{markerCount === 1 ? "" : "s"}{" "}
-            from the map.
-          </p>
-          <div className="marker-delete-modal-actions">
-            <button
-              type="button"
-              className="marker-delete-modal-cancel"
-              onClick={onCancel}
-            >
-              Keep markers
-            </button>
-            <button
-              type="button"
-              className="marker-delete-modal-confirm"
-              onClick={onConfirm}
-            >
-              <TrashIcon />
-              Delete all markers
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>,
-    document.body,
-  );
-}
-
-export default function MarkersSection({
-  onEditorActiveChange,
-}: MarkersSectionProps) {
+export default function MarkersSection() {
   const { state, dispatch, mapRef, effectiveTheme } = usePosterContext();
-  const { form, markers, customMarkerIcons, markerDefaults } = state;
-  const [isEditorActive, setIsEditorActive] = useState(false);
+  const { form, markers, customMarkerIcons, markerDefaults, isMarkerEditorActive } =
+    state;
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isDefaultColorPickerOpen, setIsDefaultColorPickerOpen] =
     useState(false);
   const [openMarkerColorPickerId, setOpenMarkerColorPickerId] = useState<
     string | null
   >(null);
-  const [isDeleteAllModalOpen, setIsDeleteAllModalOpen] = useState(false);
   const [expandedMarkerId, setExpandedMarkerId] = useState<string | null>(null);
   const markerThemeColor = effectiveTheme.ui.text;
   const hasActiveMarkerEdit = Boolean(expandedMarkerId);
@@ -214,27 +148,13 @@ export default function MarkersSection({
   );
 
   useEffect(() => {
-    dispatch({ type: "SET_MARKER_EDITOR_ACTIVE", active: isEditorActive });
-    onEditorActiveChange?.(isEditorActive);
-  }, [dispatch, isEditorActive, onEditorActiveChange]);
-
-  useEffect(() => {
-    return () => {
-      dispatch({ type: "SET_MARKER_EDITOR_ACTIVE", active: false });
-      onEditorActiveChange?.(false);
-    };
-  }, [dispatch, onEditorActiveChange]);
-
-  const handleResetAll = useCallback(() => {
-    dispatch({
-      type: "SET_MARKER_DEFAULTS",
-      defaults: {
-        size: DEFAULT_MARKER_SIZE,
-        color: markerThemeColor,
-      },
-      applyToMarkers: true,
-    });
-  }, [dispatch, markerThemeColor]);
+    if (isMarkerEditorActive) {
+      return;
+    }
+    setExpandedMarkerId(null);
+    setOpenMarkerColorPickerId(null);
+    setIsDefaultColorPickerOpen(false);
+  }, [isMarkerEditorActive]);
 
   const toggleMarkerSettings = useCallback(() => {
     setIsSettingsOpen((current) => {
@@ -250,110 +170,17 @@ export default function MarkersSection({
     setIsDefaultColorPickerOpen((current) => !current);
   }, []);
 
-  if (!isEditorActive) {
-    return (
-      <section className="panel-block">
-        <h2>Markers</h2>
-
-        <div className="theme-section markers-summary-card">
-          <div className="theme-summary-header">
-            <p className="theme-active-label">
-              {markerRows.length === 0
-                ? "No markers added yet."
-                : `${markerRows.length} marker${markerRows.length === 1 ? "" : "s"} on the map.`}
-            </p>
-            <button
-              type="button"
-              className="theme-customize-btn marker-add-btn"
-              onClick={() => setIsEditorActive(true)}
-              aria-label="Edit markers"
-            >
-              <span className="theme-customize-icon" aria-hidden="true">
-                <EditIcon />
-              </span>
-              Edit Markers
-            </button>
-          </div>
-
-          <p className="markers-summary-copy">
-            {markerRows.length === 0
-              ? "Open the marker editor to place icons at the current map center."
-              : "Open the marker editor to add more markers or adjust the ones already on the map."}
-          </p>
-
-          {markerRows.length > 0 ? (
-            <div className="markers-summary-preview" aria-hidden="true">
-              {markerRows
-                .slice(0, 6)
-                .map(({ marker, icon }) =>
-                  icon ? (
-                    <MarkerVisual
-                      key={marker.id}
-                      icon={icon}
-                      size={24}
-                      color={marker.color}
-                    />
-                  ) : null,
-                )}
-              {markerRows.length > 6 ? (
-                <span className="markers-summary-preview-count">
-                  +{markerRows.length - 6}
-                </span>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-      </section>
-    );
-  }
-
   return (
     <section className="panel-block color-editor-screen marker-settings-screen">
       <h2>Markers</h2>
 
-      <div className="color-editor-header">
-        <p className="theme-active-label">
-          {markerRows.length === 0
-            ? "Select a marker"
-            : `Editing ${markerRows.length} marker${markerRows.length === 1 ? "" : "s"}.`}
-        </p>
-        <div className="theme-edit-actions">
-          <button
-            type="button"
-            className="theme-edit-done-btn marker-editor-toolbar-btn marker-editor-toolbar-btn--danger"
-            onClick={handleResetAll}
-          >
-            Reset All
-          </button>
-          <button
-            type="button"
-            className="theme-edit-done-btn marker-editor-toolbar-btn"
-            onClick={() => {
-              setIsEditorActive(false);
-              setIsSettingsOpen(false);
-              setIsDefaultColorPickerOpen(false);
-              setOpenMarkerColorPickerId(null);
-            }}
-          >
-            Done
-          </button>
-        </div>
-      </div>
+      <p className="theme-active-label">
+        {markerRows.length === 0
+          ? "Select a marker"
+          : `Editing ${markerRows.length} marker${markerRows.length === 1 ? "" : "s"}.`}
+      </p>
 
       <div className="markers-section__content">
-        {isDeleteAllModalOpen ? (
-          <DeleteAllMarkersModal
-            markerCount={markerRows.length}
-            onCancel={() => setIsDeleteAllModalOpen(false)}
-            onConfirm={() => {
-              dispatch({ type: "CLEAR_MARKERS" });
-              setExpandedMarkerId(null);
-              setOpenMarkerColorPickerId(null);
-              setIsDeleteAllModalOpen(false);
-            }}
-          />
-        ) : null}
-
         <p className="markers-section__empty">
           Click an icon to drop a marker on the current map location.
         </p>
@@ -662,15 +489,6 @@ export default function MarkersSection({
                 </article>
               );
             })}
-            <button
-              type="button"
-              className="marker-delete-all-btn"
-              onClick={() => setIsDeleteAllModalOpen(true)}
-              disabled={hasActiveMarkerEdit}
-            >
-              <TrashIcon />
-              Delete all markers
-            </button>
           </div>
         )}
       </div>

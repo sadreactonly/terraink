@@ -15,6 +15,8 @@ interface ImportMetaEnv {
   readonly VITE_SOCIAL_YOUTUBE?: string;
   readonly VITE_KOFI_URL?: string;
   readonly VITE_APP_CREDIT_URL?: string;
+  readonly VITE_DEVELOPER_NAME?: string;
+  readonly VITE_DEVELOPER_PROFILE_URL?: string;
 }
 
 interface ImportMeta {

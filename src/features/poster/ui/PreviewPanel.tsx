@@ -5,12 +5,14 @@ import {
   useState,
   type CSSProperties,
 } from "react";
+import { createPortal } from "react-dom";
 import { usePosterContext } from "./PosterContext";
 import { useMapSync } from "@/features/map/application/useMapSync";
 import MapPreview from "@/features/map/ui/MapPreview";
 import MarkerOverlay from "@/features/markers/ui/MarkerOverlay";
 import GradientFades from "./GradientFades";
 import PosterTextOverlay from "./PosterTextOverlay";
+import SettingsInfo from "./SettingsInfo";
 import {
   EditIcon,
   FinishIcon,
@@ -21,7 +23,9 @@ import {
   RotateRightIcon,
   LockIcon,
   RecenterIcon,
+  TrashIcon,
 } from "@/shared/ui/Icons";
+import { DEFAULT_MARKER_SIZE } from "@/features/markers/infrastructure/constants";
 import {
   MAP_BUTTON_ZOOM_DURATION_MS,
   MAP_BUTTON_ZOOM_STEP,
@@ -37,6 +41,11 @@ import {
   DEFAULT_COUNTRY,
 } from "@/core/config";
 import { ensureGoogleFont, reverseGeocodeCoordinates } from "@/core/services";
+import {
+  createCustomLayoutOption,
+  formatLayoutDimensions,
+  getLayoutOption,
+} from "@/features/layout/infrastructure/layoutRepository";
 
 const LOCKED_HINT = "Map is locked to prevent unintended movement.";
 const EDIT_HINT_ACTIVE =
@@ -47,11 +56,68 @@ const CONTINENT_VIEW_ZOOM_LEVEL = 6;
 const DEFAULT_LOCATION_LABEL =
   "Hanover, Region Hannover, Lower Saxony, Germany";
 
+function DeleteAllMarkersModal({
+  markerCount,
+  onCancel,
+  onConfirm,
+}: {
+  markerCount: number;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return createPortal(
+    <div
+      className="picker-modal-backdrop"
+      role="presentation"
+      onClick={onCancel}
+    >
+      <div
+        className="picker-modal marker-delete-confirm-modal"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="marker-delete-modal-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="marker-delete-modal-body">
+          <p
+            className="marker-delete-modal-headline"
+            id="marker-delete-modal-title"
+          >
+            Delete all markers?
+          </p>
+          <p className="marker-delete-modal-text">
+            This will remove {markerCount} marker{markerCount === 1 ? "" : "s"}{" "}
+            from the map.
+          </p>
+          <div className="marker-delete-modal-actions">
+            <button
+              type="button"
+              className="marker-delete-modal-cancel"
+              onClick={onCancel}
+            >
+              Keep markers
+            </button>
+            <button
+              type="button"
+              className="marker-delete-modal-confirm"
+              onClick={onConfirm}
+            >
+              <TrashIcon />
+              Delete all markers
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 export default function PreviewPanel() {
-  const { state, dispatch, effectiveTheme, mapStyle, mapRef } = usePosterContext();
-  const { form, selectedLocation, userLocation } = state;
+  const { state, dispatch, effectiveTheme, mapStyle, mapRef } =
+    usePosterContext();
+  const { form, selectedLocation, userLocation, isMarkerEditorActive } = state;
   const hasVisibleMarkers = form.showMarkers && state.markers.length > 0;
-  const isMarkerEditorActive = state.isMarkerEditorActive;
   const {
     mapCenter,
     mapZoom,
@@ -66,6 +132,7 @@ export default function PreviewPanel() {
   const [isEditing, setIsEditing] = useState(false);
   const [mapBearing, setMapBearing] = useState(0);
   const [isRotationEnabled, setIsRotationEnabled] = useState(false);
+  const [isDeleteAllModalOpen, setIsDeleteAllModalOpen] = useState(false);
 
   useEffect(() => {
     const element = frameRef.current;
@@ -113,9 +180,15 @@ export default function PreviewPanel() {
   const widthCm = Number(form.width) || DEFAULT_POSTER_WIDTH_CM;
   const heightCm = Number(form.height) || DEFAULT_POSTER_HEIGHT_CM;
   const aspect = widthCm / heightCm;
-
   const formLat = Number(form.latitude) || 0;
   const formLon = Number(form.longitude) || 0;
+  const layoutOption =
+    getLayoutOption(form.layout) ?? createCustomLayoutOption(widthCm, heightCm);
+  const posterSizeLabel = `${widthCm} x ${heightCm} cm`;
+  const layoutLabel = `${layoutOption.name} (${formatLayoutDimensions(layoutOption)})`;
+  const markerCount = state.markers.length;
+  const markersLabel = `${markerCount} marker${markerCount === 1 ? "" : "s"}`;
+  const coordinatesLabel = `${formLat.toFixed(4)}, ${formLon.toFixed(4)}`;
   const isCityCountryView = mapZoom >= COUNTRY_VIEW_ZOOM_LEVEL;
   const isCountryContinentView =
     mapZoom >= CONTINENT_VIEW_ZOOM_LEVEL && mapZoom < COUNTRY_VIEW_ZOOM_LEVEL;
@@ -205,8 +278,7 @@ export default function PreviewPanel() {
   const handleRecenter = useCallback(() => {
     const map = mapRef.current;
     if (!map) return;
-    const target =
-      selectedLocation ||
+    const target = selectedLocation ||
       userLocation || {
         id: "fallback:hanover",
         label: DEFAULT_LOCATION_LABEL,
@@ -271,20 +343,17 @@ export default function PreviewPanel() {
           resetDisplayNameOverrides: true,
           fields: {
             displayCity: String(resolved.city ?? "").trim() || DEFAULT_CITY,
-            displayCountry: String(resolved.country ?? "").trim() || DEFAULT_COUNTRY,
-            displayContinent: String(resolved.continent ?? "").trim() || "Europe",
+            displayCountry:
+              String(resolved.country ?? "").trim() || DEFAULT_COUNTRY,
+            displayContinent:
+              String(resolved.continent ?? "").trim() || "Europe",
           },
         });
       })
       .catch(() => {
         // fallback names already applied above — nothing more to do.
       });
-  }, [
-    mapRef,
-    selectedLocation,
-    userLocation,
-    dispatch,
-  ]);
+  }, [mapRef, selectedLocation, userLocation, dispatch]);
 
   const handleMarkerPositionChange = useCallback(
     (markerId: string, lat: number, lon: number) => {
@@ -297,8 +366,43 @@ export default function PreviewPanel() {
     [dispatch],
   );
 
+  const handleToggleMarkerEditing = useCallback(() => {
+    dispatch({
+      type: "SET_MARKER_EDITOR_ACTIVE",
+      active: !isMarkerEditorActive,
+    });
+  }, [dispatch, isMarkerEditorActive]);
+
+  const handleResetMarkers = useCallback(() => {
+    dispatch({
+      type: "SET_MARKER_DEFAULTS",
+      defaults: {
+        size: DEFAULT_MARKER_SIZE,
+        color: effectiveTheme.ui.text,
+      },
+      applyToMarkers: true,
+    });
+  }, [dispatch, effectiveTheme.ui.text]);
+
+  const handleDeleteAllMarkers = useCallback(() => {
+    if (state.markers.length > 0) {
+      setIsDeleteAllModalOpen(true);
+    }
+  }, [state.markers.length]);
+
   return (
     <section className="preview-panel">
+      {isDeleteAllModalOpen ? (
+        <DeleteAllMarkersModal
+          markerCount={state.markers.length}
+          onCancel={() => setIsDeleteAllModalOpen(false)}
+          onConfirm={() => {
+            dispatch({ type: "CLEAR_MARKERS" });
+            setIsDeleteAllModalOpen(false);
+          }}
+        />
+      ) : null}
+
       <div className="poster-viewport">
         <div
           ref={frameRef}
@@ -323,7 +427,9 @@ export default function PreviewPanel() {
             onMove={handleMove}
             onMoveEnd={handleMoveEnd}
           />
-          {form.showMarkers ? <GradientFades color={effectiveTheme.ui.bg} /> : null}
+          {form.showMarkers ? (
+            <GradientFades color={effectiveTheme.ui.bg} />
+          ) : null}
           {hasVisibleMarkers ? (
             <MarkerOverlay
               markers={state.markers}
@@ -353,29 +459,60 @@ export default function PreviewPanel() {
           {!isEditing ? (
             <>
               <div className="map-control-group">
+                {!isMarkerEditorActive ? (
+                  <>
+                    <button
+                      type="button"
+                      className="map-control-btn"
+                      onClick={handleRecenter}
+                      title={RECENTER_HINT}
+                    >
+                      <RecenterIcon />
+                      <span>Recenter</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="map-control-btn map-control-btn--primary"
+                      onClick={handleStartEditing}
+                      title="Unlock map editing"
+                    >
+                      <EditIcon />
+                      <span>Edit Map</span>
+                    </button>
+                  </>
+                ) : null}
                 <button
                   type="button"
-                  className="map-control-btn"
-                  onClick={handleRecenter}
-                  title={RECENTER_HINT}
+                  className={`map-control-btn${isMarkerEditorActive ? " is-active" : ""}`}
+                  onClick={handleToggleMarkerEditing}
+                  disabled={!isMarkerEditorActive && state.markers.length === 0}
                 >
-                  <RecenterIcon />
-                  <span>Recenter</span>
+                  {isMarkerEditorActive ? <FinishIcon /> : <EditIcon />}
+                  <span>{isMarkerEditorActive ? "Done" : "Edit Markers"}</span>
                 </button>
-                <button
-                  type="button"
-                  className="map-control-btn map-control-btn--primary"
-                  onClick={handleStartEditing}
-                  title={
-                    isMarkerEditorActive
-                      ? "Close marker editor to unlock map editing"
-                      : "Unlock map editing"
-                  }
-                  disabled={isMarkerEditorActive}
-                >
-                  <EditIcon />
-                  <span>Edit Map</span>
-                </button>
+                {isMarkerEditorActive ? (
+                  <button
+                    type="button"
+                    className="map-control-btn map-control-btn--marker-reset"
+                    onClick={handleResetMarkers}
+                    title="Reset marker defaults"
+                  >
+                    <RotateLeftIcon />
+                    <span>Reset Markers</span>
+                  </button>
+                ) : null}
+                {isMarkerEditorActive ? (
+                  <button
+                    type="button"
+                    className="map-control-btn map-control-btn--danger"
+                    onClick={handleDeleteAllMarkers}
+                    title="Delete all markers"
+                    disabled={state.markers.length === 0}
+                  >
+                    <TrashIcon />
+                    <span>Delete Markers</span>
+                  </button>
+                ) : null}
               </div>
               <p className="map-control-hint">
                 <LockIcon className="map-control-hint-icon" />
@@ -409,15 +546,17 @@ export default function PreviewPanel() {
                   type="button"
                   className={`map-control-btn${isRotationEnabled ? " is-active" : ""}`}
                   onClick={handleToggleRotation}
-                  title={isRotationEnabled ? "Disable rotation" : "Enable rotation"}
+                  title={
+                    isRotationEnabled ? "Disable rotation" : "Enable rotation"
+                  }
                 >
                   <RotateIcon />
-                  <span>{isRotationEnabled ? "Disable Rotation" : "Enable Rotation"}</span>
+                  <span>
+                    {isRotationEnabled ? "Disable Rotation" : "Enable Rotation"}
+                  </span>
                 </button>
               </div>
-              <p className="map-control-hint">
-                {EDIT_HINT_ACTIVE}
-              </p>
+              <p className="map-control-hint">{EDIT_HINT_ACTIVE}</p>
               <div className="map-control-group map-control-slider-row">
                 <button
                   type="button"
@@ -480,6 +619,15 @@ export default function PreviewPanel() {
           )}
         </div>
       </section>
+
+      <SettingsInfo
+        location={form.location || DEFAULT_LOCATION_LABEL}
+        theme={effectiveTheme.name}
+        layout={layoutLabel}
+        posterSize={posterSizeLabel}
+        markers={markersLabel}
+        coordinates={coordinatesLabel}
+      />
     </section>
   );
 }
