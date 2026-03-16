@@ -22,7 +22,6 @@ const EXPORT_COUNT_STORAGE_KEY = "terraink.poster.count";
 
 export interface SupportPromptState {
   posterNumber: number;
-  isFirst: boolean;
 }
 
 function readPosterExportCount(): number {
@@ -76,8 +75,8 @@ export function useExport() {
     const nextCount = readPosterExportCount() + 1;
     writePosterExportCount(nextCount);
 
-    if (nextCount === 1 || nextCount % 5 === 0) {
-      setSupportPrompt({ posterNumber: nextCount, isFirst: nextCount === 1 });
+    if (nextCount % 5 === 0) {
+      setSupportPrompt({ posterNumber: nextCount });
     }
   }, []);
 

@@ -16,7 +16,7 @@ import {
   GitHubIcon,
   StarIcon,
   CheckIcon,
-  CoffeeIcon,
+  KofiIcon,
   LinkedInIcon,
   InstagramIcon,
   RedditIcon,
@@ -128,12 +128,12 @@ function HelpUsGrowSection({
                 rel="noreferrer"
                 aria-label="Support TerraInk on Ko-fi"
               >
-                <CoffeeIcon className="badge-icon" />
+                <KofiIcon className="badge-icon" />
                 <span>Support on Ko-fi</span>
               </a>
             ) : (
               <span className="github-badge" style={{ opacity: 0.45 }}>
-                <CoffeeIcon className="badge-icon" />
+                <KofiIcon className="badge-icon" />
                 <span>Support on Ko-fi</span>
               </span>
             )}

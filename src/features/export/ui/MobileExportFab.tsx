@@ -3,6 +3,7 @@ import { useExport } from "@/features/export/application/useExport";
 import { usePosterContext } from "@/features/poster/ui/PosterContext";
 import { CloseIcon, DownloadIcon, LoaderIcon } from "@/shared/ui/Icons";
 import SupportModal from "@/features/export/ui/SupportModal";
+import SocialLinkGroup from "@/shared/ui/SocialLinkGroup";
 
 type ExportFormat = "png" | "pdf" | "svg";
 
@@ -141,6 +142,10 @@ export default function MobileExportFab() {
                 <span>SVG</span>
               </button>
             </div>
+            <p className="mobile-export-support-label">
+              Support the project <span className="heart">❤︎</span>
+            </p>
+            <SocialLinkGroup variant="mobile-export" />
           </div>
         </div>
       ) : null}
@@ -148,7 +153,6 @@ export default function MobileExportFab() {
       {supportPrompt ? (
         <SupportModal
           posterNumber={supportPrompt.posterNumber}
-          isFirst={supportPrompt.isFirst}
           onClose={dismissSupportPrompt}
           titleId="mobile-export-support-modal-title"
         />

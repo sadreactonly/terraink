@@ -3,14 +3,12 @@ import { KOFI_URL } from "@/core/config";
 
 interface SupportModalProps {
   posterNumber: number;
-  isFirst: boolean;
   onClose: () => void;
   titleId?: string;
 }
 
 export default function SupportModal({
   posterNumber,
-  isFirst,
   onClose,
   titleId = "export-support-modal-title",
 }: SupportModalProps) {
@@ -31,12 +29,10 @@ export default function SupportModal({
       >
         <div className="credits-modal-body">
           <p className="credits-modal-headline" id={titleId}>
-            {isFirst ? "✨ Your first poster is ready!" : "✨ Your poster is ready!"}
+            ✨ Your poster is ready!
           </p>
           <p className="credits-modal-text">
-            {isFirst
-              ? "That is an awesome start. I hope you enjoy using Terraink and keep creating map posters."
-              : "If Terraink helped you create this poster, consider supporting the project on Ko-fi."}
+            If Terraink helped you create this poster, consider supporting the project on Ko-fi.
           </p>
           <p className="credits-modal-text">
             This was your poster <strong>#{posterNumber}</strong> 🎉

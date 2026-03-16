@@ -5,6 +5,10 @@ interface UseRepoStarsReturn {
   repoStarsLoading: boolean;
 }
 
+const REPO_STARS_CACHE_PREFIX = "terraink.repoStars.";
+const memoryStarsCache = new Map<string, number>();
+const inFlightRequests = new Map<string, Promise<number | null>>();
+
 function normalizeToApiUrl(url: string): string | null {
   try {
     const parsed = new URL(url);
@@ -26,6 +30,49 @@ function normalizeToApiUrl(url: string): string | null {
   }
 }
 
+function getStorageKey(apiUrl: string): string {
+  return `${REPO_STARS_CACHE_PREFIX}${encodeURIComponent(apiUrl)}`;
+}
+
+function readCachedStars(apiUrl: string): number | null {
+  const cachedInMemory = memoryStarsCache.get(apiUrl);
+  if (typeof cachedInMemory === "number") {
+    return cachedInMemory;
+  }
+
+  if (typeof window === "undefined" || !window.localStorage) {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(getStorageKey(apiUrl));
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      const normalized = Math.floor(parsed);
+      memoryStarsCache.set(apiUrl, normalized);
+      return normalized;
+    }
+  } catch {
+    // Ignore cache read failures.
+  }
+
+  return null;
+}
+
+function writeCachedStars(apiUrl: string, stars: number): void {
+  memoryStarsCache.set(apiUrl, stars);
+
+  if (typeof window === "undefined" || !window.localStorage) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(getStorageKey(apiUrl), String(stars));
+  } catch {
+    // Ignore cache write failures.
+  }
+}
+
 export function useRepoStars(repoApiUrl: string): UseRepoStarsReturn {
   const [repoStars, setRepoStars] = useState<number | null>(null);
   const [repoStarsLoading, setRepoStarsLoading] = useState(true);
@@ -38,26 +85,60 @@ export function useRepoStars(repoApiUrl: string): UseRepoStarsReturn {
       return undefined;
     }
 
+    const cachedStars = readCachedStars(finalUrl);
+    const shouldRevalidateZero = cachedStars === 0;
+    if (cachedStars !== null) {
+      setRepoStars(cachedStars);
+      setRepoStarsLoading(false);
+      if (!shouldRevalidateZero) {
+        return undefined;
+      }
+    }
+
     let cancelled = false;
-    const controller = new AbortController();
 
     async function fetchRepoStars() {
+      let request = inFlightRequests.get(finalUrl);
+      if (!request) {
+        request = (async () => {
+          const controller = new AbortController();
+          try {
+            const response = await fetch(finalUrl, {
+              headers: {
+                Accept: "application/vnd.github+json",
+              },
+              signal: controller.signal,
+            });
+
+            if (!response.ok) {
+              throw new Error(`GitHub API failed with HTTP ${response.status}`);
+            }
+
+            const payload = await response.json();
+            const stars = Number(payload?.stargazers_count);
+            if (Number.isFinite(stars) && stars >= 0) {
+              const normalized = Math.floor(stars);
+              writeCachedStars(finalUrl, normalized);
+              return normalized;
+            }
+
+            return null;
+          } catch {
+            return null;
+          } finally {
+            inFlightRequests.delete(finalUrl);
+            controller.abort();
+          }
+        })();
+        inFlightRequests.set(finalUrl, request);
+      }
+
       try {
-        setRepoStarsLoading(true);
-        const response = await fetch(finalUrl, {
-          headers: {
-            Accept: "application/vnd.github+json",
-          },
-          signal: controller.signal,
-        });
-
-        if (!response.ok) {
-          throw new Error(`GitHub API failed with HTTP ${response.status}`);
+        if (cachedStars === null) {
+          setRepoStarsLoading(true);
         }
-
-        const payload = await response.json();
-        const stars = Number(payload?.stargazers_count);
-        if (!cancelled && Number.isFinite(stars) && stars >= 0) {
+        const stars = await request;
+        if (!cancelled && stars !== null) {
           setRepoStars(stars);
         }
       } catch {
@@ -71,11 +152,10 @@ export function useRepoStars(repoApiUrl: string): UseRepoStarsReturn {
       }
     }
 
-    fetchRepoStars();
+    void fetchRepoStars();
 
     return () => {
       cancelled = true;
-      controller.abort();
     };
   }, [repoApiUrl]);
 

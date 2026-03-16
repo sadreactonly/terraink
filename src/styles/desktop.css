@@ -130,6 +130,68 @@
     gap: 8px;
   }
 
+  .desktop-header-social {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-right: 4px;
+  }
+
+  .general-header-social-btn {
+    width: 34px;
+    height: 34px;
+    border: 1px solid rgba(146, 176, 200, 0.2);
+    border-radius: 9px;
+    background: rgba(10, 20, 31, 0.78);
+    color: rgba(195, 220, 240, 0.86);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    transition:
+      background 0.15s,
+      border-color 0.15s,
+      color 0.15s;
+  }
+
+  .general-header-social-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .general-header-social-btn:hover,
+  .general-header-social-btn:focus-visible {
+    background: rgba(94, 174, 212, 0.1);
+    border-color: rgba(94, 174, 212, 0.5);
+    color: #c8e8f8;
+  }
+
+  .general-header-social-btn--github {
+    width: auto;
+    min-width: 90px;
+    padding: 0 10px;
+    gap: 7px;
+  }
+
+  .general-header-github-stars {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: "Spline Sans Mono", monospace;
+    font-size: 0.67rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  .general-header-github-stars-count {
+    transform: translateY(2px);
+  }
+
+  .general-header-github-stars svg {
+    width: 12px;
+    height: 12px;
+  }
+
   .general-header-text-btn {
     transition:
       background 0.15s,
@@ -319,14 +381,19 @@
   }
 
   .dsk-loc-bar button.location-clear-btn {
-    right: 3px;
-    width: auto;
-    height: auto;
+    right: -3px;
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     border: none;
     border-radius: 0;
     background: transparent;
     color: rgba(198, 221, 237, 0.72);
-    font-size: 0.78rem;
+    font-size: 1.2rem;
     line-height: 1;
   }
 

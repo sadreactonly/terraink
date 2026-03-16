@@ -69,7 +69,6 @@ export default function DesktopExportFab() {
       {supportPrompt ? (
         <SupportModal
           posterNumber={supportPrompt.posterNumber}
-          isFirst={supportPrompt.isFirst}
           onClose={dismissSupportPrompt}
           titleId="fab-export-support-modal-title"
         />

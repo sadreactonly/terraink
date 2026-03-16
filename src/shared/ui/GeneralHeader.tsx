@@ -1,5 +1,6 @@
 import InstallPrompt from "@/features/install/ui/InstallPrompt";
 import { InfoIcon } from "@/shared/ui/Icons";
+import SocialLinkGroup from "@/shared/ui/SocialLinkGroup";
 
 interface GeneralHeaderProps {
   onAboutOpen: () => void;
@@ -23,6 +24,7 @@ export default function GeneralHeader({ onAboutOpen }: GeneralHeaderProps) {
       </div>
 
       <div className="general-header-actions">
+        <SocialLinkGroup variant="header" />
         <InstallPrompt variant="header" />
         <button
           type="button"
