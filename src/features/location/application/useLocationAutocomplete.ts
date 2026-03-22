@@ -6,6 +6,7 @@ interface UseLocationAutocompleteReturn {
   locationSuggestions: SearchResult[];
   isLocationSearching: boolean;
   clearLocationSuggestions: () => void;
+  searchNow: (query: string) => Promise<void>;
 }
 
 const DEBOUNCE_DELAY_MS = 1000;
@@ -19,6 +20,23 @@ export function useLocationAutocomplete(
   >([]);
   const [isLocationSearching, setIsLocationSearching] = useState(false);
 
+  const performSearch = useCallback(async (query: string) => {
+    const q = String(query ?? "").trim();
+    if (q.length < 2) {
+      setLocationSuggestions([]);
+      return;
+    }
+    setIsLocationSearching(true);
+    try {
+      const suggestions = await searchLocations(q, 6);
+      setLocationSuggestions(suggestions as SearchResult[]);
+    } catch {
+      setLocationSuggestions([]);
+    } finally {
+      setIsLocationSearching(false);
+    }
+  }, []);
+
   useEffect(() => {
     const query = String(locationInput ?? "").trim();
     if (!isFocused || query.length < 2) {
@@ -29,20 +47,8 @@ export function useLocationAutocomplete(
 
     let cancelled = false;
     const debounceId = window.setTimeout(async () => {
-      setIsLocationSearching(true);
-      try {
-        const suggestions = await searchLocations(query, 6);
-        if (!cancelled) {
-          setLocationSuggestions(suggestions as SearchResult[]);
-        }
-      } catch {
-        if (!cancelled) {
-          setLocationSuggestions([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLocationSearching(false);
-        }
+      if (!cancelled) {
+        void performSearch(query);
       }
     }, DEBOUNCE_DELAY_MS);
 
@@ -50,7 +56,7 @@ export function useLocationAutocomplete(
       cancelled = true;
       window.clearTimeout(debounceId);
     };
-  }, [locationInput, isFocused]);
+  }, [locationInput, isFocused, performSearch]);
 
   const clearLocationSuggestions = useCallback(() => {
     setLocationSuggestions([]);
@@ -60,5 +66,6 @@ export function useLocationAutocomplete(
     locationSuggestions,
     isLocationSearching,
     clearLocationSuggestions,
+    searchNow: performSearch,
   };
 }
