@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { searchLocations } from "@/core/services";
 import type { SearchResult } from "@/features/location/domain/types";
 
@@ -9,7 +9,7 @@ interface UseLocationAutocompleteReturn {
   searchNow: (query: string) => Promise<void>;
 }
 
-const DEBOUNCE_DELAY_MS = 1000;
+const DEBOUNCE_DELAY_MS = 450;
 
 // Track in-flight requests globally to deduplicate across multiple hook instances
 const inFlightRequests = new Map<string, Promise<SearchResult[]>>();
@@ -22,6 +22,8 @@ export function useLocationAutocomplete(
     SearchResult[]
   >([]);
   const [isLocationSearching, setIsLocationSearching] = useState(false);
+  const latestQueryRef = useRef("");
+  const debounceIdRef = useRef<number | undefined>(undefined);
 
   const performSearch = useCallback(async (query: string) => {
     const q = String(query ?? "").trim();
@@ -30,10 +32,14 @@ export function useLocationAutocomplete(
       return;
     }
 
+    latestQueryRef.current = q;
+
     // Check if this query is already in-flight
     if (inFlightRequests.has(q)) {
       const cachedResult = await inFlightRequests.get(q);
-      setLocationSuggestions(cachedResult as SearchResult[]);
+      if (latestQueryRef.current === q) {
+        setLocationSuggestions(cachedResult as SearchResult[]);
+      }
       return;
     }
 
@@ -41,32 +47,49 @@ export function useLocationAutocomplete(
     const promise = searchLocations(q, 6)
       .then((suggestions) => {
         const result = suggestions as SearchResult[];
-        setLocationSuggestions(result);
+        if (latestQueryRef.current === q) {
+          setLocationSuggestions(result);
+        }
         inFlightRequests.delete(q);
         return result;
       })
       .catch(() => {
-        setLocationSuggestions([]);
+        if (latestQueryRef.current === q) {
+          setLocationSuggestions([]);
+        }
         inFlightRequests.delete(q);
         return [];
       })
       .finally(() => {
-        setIsLocationSearching(false);
+        if (latestQueryRef.current === q) {
+          setIsLocationSearching(false);
+        }
       });
 
     inFlightRequests.set(q, promise);
   }, []);
 
+  const searchNow = useCallback(
+    async (query: string) => {
+      // Cancel any pending debounce so it doesn't fire again after the immediate search
+      window.clearTimeout(debounceIdRef.current);
+      debounceIdRef.current = undefined;
+      await performSearch(query);
+    },
+    [performSearch],
+  );
+
   useEffect(() => {
     const query = String(locationInput ?? "").trim();
     if (!isFocused || query.length < 2) {
+      latestQueryRef.current = "";
       setLocationSuggestions([]);
       setIsLocationSearching(false);
       return undefined;
     }
 
     let cancelled = false;
-    const debounceId = window.setTimeout(async () => {
+    debounceIdRef.current = window.setTimeout(() => {
       if (!cancelled) {
         void performSearch(query);
       }
@@ -74,7 +97,8 @@ export function useLocationAutocomplete(
 
     return () => {
       cancelled = true;
-      window.clearTimeout(debounceId);
+      window.clearTimeout(debounceIdRef.current);
+      debounceIdRef.current = undefined;
     };
   }, [locationInput, isFocused, performSearch]);
 
@@ -86,6 +110,6 @@ export function useLocationAutocomplete(
     locationSuggestions,
     isLocationSearching,
     clearLocationSuggestions,
-    searchNow: performSearch,
+    searchNow,
   };
 }
