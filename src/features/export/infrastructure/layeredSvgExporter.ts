@@ -94,6 +94,23 @@ function sanitizeLayerId(id: string): string {
   return id.replace(/[^a-zA-Z0-9_-]/g, "-");
 }
 
+function escapeXmlAttribute(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function createEmbeddedImageTag(
+  dataUrl: string,
+  exportWidth: number,
+  exportHeight: number,
+): string {
+  const escapedUrl = escapeXmlAttribute(dataUrl);
+  return `<image href="${escapedUrl}" xlink:href="${escapedUrl}" width="${exportWidth}" height="${exportHeight}" preserveAspectRatio="none" />`;
+}
+
 export async function createLayeredSvgBlobFromMap({
   map,
   exportWidth,
@@ -268,7 +285,7 @@ export async function createLayeredSvgBlobFromMap({
     const mapLayerGroups = mapLayerDataUrls
       .map(
         (layer) => `<g id="map-layer-${sanitizeLayerId(layer.id)}">
-  <image href="${layer.dataUrl}" width="${exportWidth}" height="${exportHeight}" preserveAspectRatio="none" />
+  ${createEmbeddedImageTag(layer.dataUrl, exportWidth, exportHeight)}
 </g>`,
       )
       .join("\n");
@@ -276,13 +293,13 @@ export async function createLayeredSvgBlobFromMap({
     const overlayGroups = overlayLayers
       .map(
         (layer) => `<g id="overlay-layer-${sanitizeLayerId(layer.id)}">
-  <image href="${layer.dataUrl}" width="${exportWidth}" height="${exportHeight}" preserveAspectRatio="none" />
+  ${createEmbeddedImageTag(layer.dataUrl, exportWidth, exportHeight)}
 </g>`,
       )
       .join("\n");
 
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${exportWidth}" height="${exportHeight}" viewBox="0 0 ${exportWidth} ${exportHeight}">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${exportWidth}" height="${exportHeight}" viewBox="0 0 ${exportWidth} ${exportHeight}">
 ${mapLayerGroups}
 ${overlayGroups}
 </svg>`;
